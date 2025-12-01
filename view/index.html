@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Web Terminal Seguro</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm/css/xterm.css" />
+  <style>
+    body, html { margin: 0; height: 100%; background: #1e1e1e; }
+    #terminal { width: 100%; height: 100vh; }
+  </style>
+</head>
+<body>
+  <div id="terminal"></div>
+  <script src="https://cdn.jsdelivr.net/npm/xterm/lib/xterm.js"></script>
+  <script>
+    async function initTerminal() {
+      const term = new Terminal();
+      term.open(document.getElementById('terminal'));
+
+      let passwordBuffer = '';
+      let authInProgress = false;
+
+      // Mostrar prompt de login
+      term.write('\x1b[33mSenha: \x1b[0m');
+
+      term.onData(async (data) => {
+        if (authInProgress) return;
+
+        // Se for Enter
+        if (data === '\r' || data === '\n') {
+          if (passwordBuffer === '') return;
+          
+          authInProgress = true;
+          term.write('\r\n\x1b[90mAutenticando...\x1b[0m\r\n');
+
+          try {
+            const resp = await fetch("http://localhost:9090/auth", {
+              method: "POST",
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+              },
+              body: new URLSearchParams({ password: passwordBuffer })
+            });
+
+            if (!resp.ok) {
+              throw new Error('Senha incorreta');
+            }
+
+            const { token, signature } = await resp.json();
+
+            // Conectar WebSocket
+            const socket = new WebSocket(`ws://localhost:9090/?token=${token}&signature=${signature}`);
+
+            socket.onopen = () => {
+              term.write('\x1b[2J\x1b[0;0H'); // Limpar tela
+              // term.write('\x1b[32mConectado ao servidor!\x1b[m\r\n\r\n');
+            };
+
+            socket.onmessage = e => term.write(e.data);
+            socket.onclose = () => term.write('\r\n\x1b[31mConexão encerrada\x1b[m\r\n');
+            socket.onerror = () => term.write('\r\n\x1b[31mErro no WebSocket\x1b[m\r\n');
+
+            // Enviar dados digitados para o servidor
+            term.onData(data => {
+              if (socket.readyState === WebSocket.OPEN) {
+                socket.send(data);
+              }
+            });
+
+          } catch (error) {
+            term.write(`\x1b[31mFalha: ${error.message}\x1b[0m\r\n\r\n`);
+            term.write('\x1b[33mSenha: \x1b[0m');
+            passwordBuffer = '';
+            authInProgress = false;
+          }
+        }
+        // Se for Backspace
+        else if (data === '\x7f' || data === '\b') {
+          if (passwordBuffer.length > 0) {
+            passwordBuffer = passwordBuffer.slice(0, -1);
+            term.write('\b \b');
+          }
+        }
+        // Outros caracteres
+        else if (data.length === 1 && data >= ' ') {
+          passwordBuffer += data;
+          term.write('*'); // Opcional: mostrar asterisco
+        }
+      });
+    }
+
+    initTerminal();
+  </script>
+</body>
+</html>

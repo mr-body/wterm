@@ -1,0 +1,13 @@
+services:
+  wter-server:
+    image: mrbody/wterm:beta
+    container_name: wter-server
+    ports:
+      - "9090:9090"
+    environment:
+      - SHELL=/bin/bash
+      - HOME=/root
+    restart: unless-stopped
+    volumes:
+      - ./workspace:/root
+      - /var/run/docker.sock:/var/run/docker.sock

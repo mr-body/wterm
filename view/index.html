@@ -34,7 +34,7 @@
           term.write('\r\n\x1b[90mAutenticando...\x1b[0m\r\n');
 
           try {
-            const resp = await fetch("http://localhost:9090/auth", {
+            const resp = await fetch("https://wterm-beta.onrender.com/auth", {
               method: "POST",
               headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
@@ -49,7 +49,7 @@
             const { token, signature } = await resp.json();
 
             // Conectar WebSocket
-            const socket = new WebSocket(`ws://localhost:9090/?token=${token}&signature=${signature}`);
+            const socket = new WebSocket(`wss://wterm-beta.onrender.com?token=${token}&signature=${signature}`);
 
             socket.onopen = () => {
               term.write('\x1b[2J\x1b[0;0H'); // Limpar tela
